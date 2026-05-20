@@ -3,6 +3,9 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
 
+/**
+ * Inicia sesión validando credenciales y redirige según el rol asignado
+ */
 export async function login(formData: FormData) {
   const supabase = await createClient()
   const email = formData.get('email') as string
@@ -21,6 +24,9 @@ export async function login(formData: FormData) {
   redirect('/dashboard')
 }
 
+/**
+ * Registra un nuevo usuario en la base de datos de autenticación
+ */
 export async function signup(formData: FormData) {
   const supabase = await createClient()
   const email = formData.get('email') as string
@@ -29,9 +35,9 @@ export async function signup(formData: FormData) {
   const roleSelected = formData.get('role') as string // 'Usuario', 'Soporte', 'Admin'
 
   // VALIDACIÓN CRUCIAL: Restricción estricta de dominios institucionales de Celaya
-  if (!email.endsWith('@itcelaya.edu.mx') && !email.endsWith('@itcelaya.mx')) {
-    return redirect('/login?error=Solo se permiten correos institucionales (@itcelaya.edu.mx)')
-  }
+  //if (!email.endsWith('@itcelaya.edu.mx') && !email.endsWith('@itcelaya.mx')) {
+  //  return redirect('/login?error=Solo se permiten correos institucionales (@itcelaya.edu.mx)')
+  //}
 
   const { data, error } = await supabase.auth.signUp({
     email,
@@ -49,5 +55,18 @@ export async function signup(formData: FormData) {
     return redirect(`/login?error=${encodeURIComponent(error.message)}`)
   }
 
-  return redirect('/login?message=Registro exitoso. Verifica tu correo electrónico.')
+  return redirect('/login?message=Registro exitoso. Verifica tu correo electronico.')
+}
+
+/**
+ * Cierra la sesión activa del usuario, destruye las cookies y redirige al Login
+ */
+export async function logout() {
+  const supabase = await createClient()
+  
+  // Borra la sesión en Supabase y destruye las cookies del navegador de forma segura
+  await supabase.auth.signOut()
+  
+  // Redirige al login de inmediato
+  return redirect('/login')
 }

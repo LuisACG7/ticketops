@@ -1,5 +1,5 @@
 import { login, signup } from './actions'
-import { Mail, Lock, Info } from 'lucide-react'
+import { Mail, Lock, Info, User } from 'lucide-react'
 
 export default async function LoginPage({
   searchParams,
@@ -11,15 +11,15 @@ export default async function LoginPage({
   return (
     <div className="relative min-h-screen flex flex-col items-center justify-center bg-[#111827] px-4 py-12">
       {/* Fondo con patrón de puntos (Pattern) */}
-      <div className="absolute inset-0 z-0 opacity-20" 
-           style={{ backgroundImage: 'radial-gradient(#9ca3af 1px, transparent 1px)', backgroundSize: '24px 24px' }}>
-      </div>
+      <div 
+        className="absolute inset-0 z-0 opacity-20" 
+        style={{ backgroundImage: 'radial-gradient(#9ca3af 1px, transparent 1px)', backgroundSize: '24px 24px' }}
+      ></div>
 
       <div className="relative z-10 w-full max-w-md">
         {/* Encabezado: Logo y Títulos */}
         <div className="flex flex-col items-center mb-8">
           <div className="bg-white p-2 rounded-lg mb-4 shadow-lg">
-            {/* Icono de logo (puedes reemplazar con tu imagen de logo real) */}
             <div className="w-10 h-10 bg-[#1e293b] rounded flex items-center justify-center text-white font-bold">
               <div className="border-2 border-white w-5 h-5 rounded-sm"></div>
             </div>
@@ -35,6 +35,7 @@ export default async function LoginPage({
             Ingresa tus credenciales institucionales para continuar.
           </p>
 
+          {/* FORMULARIO COMPLETO */}
           <form className="space-y-6">
             {/* Mensajes de Error o Éxito */}
             {params.error && (
@@ -48,7 +49,25 @@ export default async function LoginPage({
               </div>
             )}
 
-            {/* Campo: Correo */}
+            {/* Campo: Nombre Completo (Necesario para insert en public.profiles) */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Nombre Completo <span className="text-gray-400 font-normal text-xs">(Solo para registro)</span>
+              </label>
+              <div className="relative">
+                <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">
+                  <User size={18} />
+                </span>
+                <input
+                  name="fullName"
+                  type="text"
+                  className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  placeholder="Luis Angel"
+                />
+              </div>
+            </div>
+
+            {/* Campo: Correo Institucional */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">Correo Institucional</label>
               <div className="relative">
@@ -85,6 +104,19 @@ export default async function LoginPage({
               </div>
             </div>
 
+            {/* Campo: Selector de Rol (Necesario para simular perfiles) */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Rol del Usuario</label>
+              <select
+                name="role"
+                className="block w-full px-3 py-3 border border-gray-200 bg-white rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-700 font-medium"
+              >
+                <option value="Usuario">Usuario (Alumno / Docente)</option>
+                <option value="Soporte">Soporte Técnico</option>
+                <option value="Admin">Administrador General</option>
+              </select>
+            </div>
+
             {/* Checkbox: Mantener sesión */}
             <div className="flex items-center">
               <input
@@ -107,7 +139,6 @@ export default async function LoginPage({
                 Iniciar Sesión
               </button>
               
-              {/* Botón secundario para registro (si quieres mantenerlo) */}
               <button
                 formAction={signup}
                 className="w-full bg-white text-gray-700 border border-gray-200 font-bold py-3 px-4 rounded-xl hover:bg-gray-50 transition-all"
