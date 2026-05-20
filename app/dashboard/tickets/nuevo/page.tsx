@@ -1,5 +1,5 @@
 import Sidebar from '@/components/Sidebar'
-import TicketsTable from '@/components/TicketsTable' // <-- Importamos la nueva tabla
+import TicketsTable from '@/components/TicketsTable'
 import { createClient } from '@/utils/supabase/server'
 import { Plus, Bell } from 'lucide-react'
 import Link from 'next/link'
@@ -7,10 +7,10 @@ import Link from 'next/link'
 export default async function DashboardPage() {
   const supabase = await createClient()
 
-  // 1. Obtener la sesión del usuario logueado actualmente
+  // 1. Obtener sesión del usuario
   const { data: { user } } = await supabase.auth.getUser()
 
-  // 2. Traer los tickets reales de la BD
+  // 2. Obtener los tickets reales filtrados por el usuario
   const { data: tickets, error } = await supabase
     .from('tickets')
     .select('*')
@@ -24,20 +24,17 @@ export default async function DashboardPage() {
   const safeTickets = tickets || []
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] flex text-gray-900 font-sans relative">
+    <div className="min-h-screen bg-[#f8fafc] flex text-gray-900 font-sans">
       
       <Sidebar />
 
       {/* ÁREA DE CONTENIDO PRINCIPAL */}
       <div className="flex-1 flex flex-col min-w-0">
         
-        {/* Barra Superior Estática */}
+        {/* CORRECCIÓN: Volvemos al Header limpio con flexbox nativo sin empalmes */}
         <header className="bg-white border-b border-gray-200 h-16 px-4 lg:px-8 flex items-center justify-between sticky top-0 z-30">
           <div className="flex items-center gap-4 flex-1 pl-12 lg:pl-0">
             <h1 className="text-xl font-bold text-gray-900 hidden sm:block">Panel de Control</h1>
-            
-            {/* El espacio del buscador queda libre aquí porque el componente hijo se posicionará de forma absoluta justo encima */}
-            <div className="max-w-md w-full h-9 hidden lg:block" />
           </div>
 
           <div className="flex items-center gap-3">
@@ -59,7 +56,7 @@ export default async function DashboardPage() {
         {/* Zona del Dashboard */}
         <main className="p-4 lg:p-8 space-y-6 flex-1 overflow-y-auto max-w-7xl w-full mx-auto">
           
-          {/* Llamamos a nuestra tabla interactiva pasándole los tickets obtenidos desde el servidor */}
+          {/* Renderizado de la tabla con los folios e inputs corregidos */}
           <TicketsTable initialTickets={safeTickets} />
 
         </main>
