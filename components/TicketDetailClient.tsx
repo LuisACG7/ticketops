@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/utils/supabase/client'
-import { Send, Paperclip, Phone, MoreVertical, CheckCircle2, RefreshCw } from 'lucide-react'
+import { Send, Paperclip, CheckCircle2, RefreshCw } from 'lucide-react'
 import { RealtimePostgresInsertPayload } from '@supabase/supabase-js'
 
 interface ProfilerInfo {
@@ -49,6 +49,12 @@ export default function TicketDetailClient({ initialTicket, initialComments, cur
   const [newMessage, setNewMessage] = useState<string>('')
   const [sending, setSending] = useState<boolean>(false)
 
+  useEffect(() => {
+    console.log("=== DEPURACIÓN DE DATOS EN EL CLIENTE ===")
+    console.log("Ticket ID:", ticket.id)
+    console.log("Comentarios Iniciales:", initialComments)
+  }, [ticket.id, initialComments])
+
   const scrollToBottom = () => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
@@ -57,7 +63,7 @@ export default function TicketDetailClient({ initialTicket, initialComments, cur
     scrollToBottom()
   }, [comments])
 
-  // CORRECCIÓN RF-08: Configuración e inscripción correcta al canal de tiempo real
+  // Suscripción de Realtime corregida y segura
   useEffect(() => {
     const channel = supabase
       .channel(`chat_room_${ticket.id}`)
@@ -65,7 +71,7 @@ export default function TicketDetailClient({ initialTicket, initialComments, cur
         'postgres_changes',
         { 
           event: 'INSERT', 
-          schema: 'public', // Mantener en minúsculas estrictas
+          schema: 'public', 
           table: 'comments', 
           filter: `ticket_id=eq.${ticket.id}` 
         },
@@ -73,8 +79,7 @@ export default function TicketDetailClient({ initialTicket, initialComments, cur
           const newComment = payload.new
 
           try {
-            // Intentar obtener el perfil del emisor de forma segura
-            const { data: profile, error } = await supabase
+            const { data: profile } = await supabase
               .from('profiles')
               .select('name, avatar_url, role')
               .eq('id', newComment.user_id)
@@ -82,19 +87,18 @@ export default function TicketDetailClient({ initialTicket, initialComments, cur
 
             const commentWithProfile: Comment = {
               ...newComment,
-              emisor: (profile && !error) ? {
+              emisor: profile ? {
                 name: profile.name,
                 avatar_url: profile.avatar_url,
                 role: profile.role
-              } : { name: 'Usuario', avatar_url: null, role: 'Usuario' }
+              } : { name: 'Soporte', avatar_url: null, role: 'Soporte' }
             }
 
             setComments((prev) => {
               if (prev.some((c) => c.id === newComment.id)) return prev
               return [...prev, commentWithProfile]
             })
-          } catch (profileError) {
-            // Si falla perfiles por RLS, insertamos el comentario de todas formas para no romper el chat
+          } catch {
             const fallbackComment: Comment = {
               ...newComment,
               emisor: { name: 'Usuario', avatar_url: null, role: 'Usuario' }
@@ -166,9 +170,9 @@ export default function TicketDetailClient({ initialTicket, initialComments, cur
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start relative z-10">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start w-full">
       
-      {/* PANEL 1 Y 2: CONTROL LATERAL */}
+      {/* PANEL LATERAL: INFORMACIÓN DEL TICKET */}
       <div className="lg:col-span-1 space-y-6">
         <div className="bg-white rounded-2xl border border-gray-200/90 shadow-sm p-5 space-y-5">
           <div className="flex items-center justify-between">
@@ -252,8 +256,8 @@ export default function TicketDetailClient({ initialTicket, initialComments, cur
         </div>
       </div>
 
-      {/* PANEL 3: INTERFAZ DE MENSAJERÍA */}
-      <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-200/90 shadow-sm h-[calc(100vh-14rem)] flex flex-col overflow-hidden relative z-20">
+      {/* PANEL DE RESPUESTAS / MENSAJERÍA */}
+      <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-200/90 shadow-sm min-h-[550px] h-[70vh] flex flex-col overflow-hidden w-full">
         <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/40">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs">
@@ -269,27 +273,27 @@ export default function TicketDetailClient({ initialTicket, initialComments, cur
           </div>
         </div>
 
-        {/* Burbujas de chat con validador de estado vacío */}
-        <div className="flex-1 p-4 overflow-y-auto space-y-4 bg-slate-50/30 min-h-[200px]">
+        {/* Mensajes */}
+        <div className="flex-1 p-4 overflow-y-auto space-y-4 bg-slate-50/30 flex flex-col justify-start">
           {comments.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-center p-6">
-              <p className="text-xs font-semibold text-gray-400">No hay mensajes en este ticket aún.</p>
-              <p className="text-[11px] text-gray-400/80 mt-0.5">Escribe un mensaje abajo para iniciar la conversación.</p>
+            <div className="my-auto flex flex-col items-center justify-center text-center p-6">
+              <p className="text-xs font-bold text-gray-400">Sin historial de comentarios</p>
+              <p className="text-[11px] text-gray-400/80 mt-1">Envía un mensaje abajo para iniciar la conversación.</p>
             </div>
           ) : (
             comments.map((msg) => {
               const isMe = msg.user_id === currentUserId
               return (
-                <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+                <div key={msg.id} className={`flex flex-col w-full ${isMe ? 'items-end' : 'items-start'}`}>
                   <span className="text-[10px] font-bold text-gray-400 mb-1 px-1">
                     {isMe ? 'Tú' : msg.emisor?.name || 'Soporte'}
                   </span>
-                  <div className={`max-w-[70%] rounded-2xl p-3 text-xs leading-relaxed font-medium shadow-sm ${
+                  <div className={`max-w-[75%] rounded-2xl p-3 text-xs leading-relaxed font-medium shadow-sm ${
                     isMe 
                       ? 'bg-[#0b3b60] text-white rounded-tr-none' 
                       : 'bg-white text-gray-800 border border-gray-100 rounded-tl-none'
                   }`}>
-                    <p>{msg.message}</p>
+                    <p className="break-words whitespace-pre-wrap">{msg.message}</p>
                     <span className={`block text-[9px] mt-1 text-right ${isMe ? 'text-blue-200' : 'text-gray-400'}`}>
                       {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </span>
@@ -301,8 +305,8 @@ export default function TicketDetailClient({ initialTicket, initialComments, cur
           <div ref={chatEndRef} />
         </div>
 
-        {/* Formulario de Envío */}
-        <form onSubmit={handleSendMessage} className="p-3 border-t border-gray-100 bg-white flex items-center gap-2 sticky bottom-0 z-30">
+        {/* Input Form */}
+        <form onSubmit={handleSendMessage} className="p-3 border-t border-gray-100 bg-white flex items-center gap-2 mt-auto">
           <button type="button" className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-xl transition-colors">
             <Paperclip size={16} />
           </button>
