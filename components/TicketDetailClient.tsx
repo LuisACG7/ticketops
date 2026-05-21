@@ -49,11 +49,17 @@ export default function TicketDetailClient({ initialTicket, initialComments, cur
   const [newMessage, setNewMessage] = useState<string>('')
   const [sending, setSending] = useState<boolean>(false)
 
+  // Sincronizar el estado local cuando cambien las props del Servidor
+  useEffect(() => {
+    setTicket(initialTicket)
+    setComments(initialComments)
+  }, [initialTicket, initialComments])
+
   useEffect(() => {
     console.log("=== DEPURACIÓN DE DATOS EN EL CLIENTE ===")
     console.log("Ticket ID:", ticket.id)
-    console.log("Comentarios Iniciales:", initialComments)
-  }, [ticket.id, initialComments])
+    console.log("Comentarios en pantalla (state):", comments)
+  }, [ticket.id, comments])
 
   const scrollToBottom = () => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -79,19 +85,21 @@ export default function TicketDetailClient({ initialTicket, initialComments, cur
           const newComment = payload.new
 
           try {
-            const { data: profile } = await supabase
+            const { data: profile, error: profileError } = await supabase
               .from('profiles')
               .select('name, avatar_url, role')
               .eq('id', newComment.user_id)
-              .single()
+              .maybeSingle()
+
+            if (profileError || !profile) throw new Error("No profile found")
 
             const commentWithProfile: Comment = {
               ...newComment,
-              emisor: profile ? {
+              emisor: {
                 name: profile.name,
                 avatar_url: profile.avatar_url,
                 role: profile.role
-              } : { name: 'Soporte', avatar_url: null, role: 'Soporte' }
+              }
             }
 
             setComments((prev) => {
@@ -101,7 +109,7 @@ export default function TicketDetailClient({ initialTicket, initialComments, cur
           } catch {
             const fallbackComment: Comment = {
               ...newComment,
-              emisor: { name: 'Usuario', avatar_url: null, role: 'Usuario' }
+              emisor: { name: 'Soporte / Usuario', avatar_url: null, role: 'Usuario' }
             }
             setComments((prev) => {
               if (prev.some((c) => c.id === newComment.id)) return prev
