@@ -1,17 +1,26 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useParams } from 'next/navigation'
 import { LayoutDashboard, Ticket, MessageSquare, User, LogOut, ShieldCheck } from 'lucide-react'
 import { logout } from '@/app/login/actions'
 
 export default function SidebarSoporte() {
   const pathname = usePathname()
+  const params = useParams()
+  
+  // Extraemos el id del ticket si el usuario se encuentra actualmente dentro de la ruta [id]
+  const currentTicketId = params?.id as string | undefined
+
+  // Determinamos la ruta del chat: si está dentro de un ticket, se queda ahí; si no, va a la lista a elegir uno
+  const chatHref = currentTicketId 
+    ? `/soporte/tickets/${currentTicketId}` 
+    : '/soporte/tickets?select_ticket_to_chat=true'
 
   const menuItems = [
     { name: 'Dashboard', href: '/soporte', icon: LayoutDashboard },
     { name: 'Tickets Asignados', href: '/soporte/tickets', icon: Ticket },
-    { name: 'Mensajes / Chats', href: '/soporte/chats', icon: MessageSquare },
+    { name: 'Mensajes / Chats', href: chatHref, icon: MessageSquare },
     { name: 'Tecnicos', href: '/soporte/tecnicos', icon: User },
   ]
 
@@ -34,16 +43,27 @@ export default function SidebarSoporte() {
           {menuItems.map((item) => {
             const Icon = item.icon
             
-            {/* CORREGIDO: Si es la raíz de soporte, evaluar coincidencia exacta.
-              Si son subrutas (como /soporte/tickets/[id]), evalúa si el pathname inicia con esa ruta base.
-            */}
-            const isActive = item.href === '/soporte' 
-              ? pathname === item.href 
-              : pathname.startsWith(item.href)
+            let isActive = false
+
+            // Lógica avanzada de iluminación basada en la estructura real de tus carpetas
+            if (item.name === 'Mensajes / Chats') {
+              // Se ilumina "Mensajes / Chats" únicamente si el técnico está viendo un ticket en específico
+              isActive = !!currentTicketId && pathname === item.href
+            } else if (item.href === '/soporte') {
+              // Dashboard: Coincidencia exacta
+              isActive = pathname === '/soporte'
+            } else if (item.href === '/soporte/tickets') {
+              // Tickets Asignados: Se ilumina si está en la lista de tickets 
+              // O si está en un ticket individual pero "Mensajes / Chats" NO está activo
+              isActive = pathname.startsWith('/soporte/tickets') && !currentTicketId
+            } else {
+              // Técnicos y demás rutas estándar
+              isActive = pathname.startsWith(item.href)
+            }
 
             return (
               <Link
-                key={item.href}
+                key={item.name}
                 href={item.href}
                 className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition-all ${
                   isActive
