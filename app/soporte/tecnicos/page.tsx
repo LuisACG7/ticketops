@@ -177,7 +177,7 @@ export default async function TecnicosDashboard({ searchParams }: PageProps) {
             className="w-full bg-transparent text-xs text-gray-700 font-medium placeholder-gray-400 focus:outline-none"
           />
           {querySearch && (
-            <Link href="/dashboard/soporte/tecnicos" className="text-[10px] text-gray-400 hover:text-gray-600 font-bold px-1">
+            <Link href="/soporte/tecnicos" className="text-[10px] text-gray-400 hover:text-gray-600 font-bold px-1">
               Limpiar
             </Link>
           )}
