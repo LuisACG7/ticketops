@@ -5,7 +5,6 @@ import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import TicketDetailClient from '@/components/TicketDetailClient'
 
-// 1. Tipos locales estrictos sin usar 'any' para pasar el Linter sin problemas
 type BaseUserProfile = {
   name: string
   avatar_url: string | null
@@ -23,7 +22,7 @@ type StructuredTicket = {
   location: string | null
   usuario?: BaseUserProfile
   tecnico?: BaseUserProfile
-  [key: string]: unknown // Reemplazado 'any' por 'unknown' para cumplir con el linter
+  [key: string]: unknown 
 }
 
 type StructuredComment = {
@@ -34,7 +33,7 @@ type StructuredComment = {
   attachments: string[] | null
   created_at: string
   emisor?: BaseUserProfile
-  [key: string]: unknown // Reemplazado 'any' por 'unknown' para cumplir con el linter
+  [key: string]: unknown 
 }
 
 interface PageProps {
@@ -44,13 +43,11 @@ interface PageProps {
 }
 
 export default async function TicketDetailPage({ params }: PageProps) {
-  // 2. Resolver la promesa de params (Requisito obligatorio de Next.js 15)
   const resolvedParams = await params
   const ticketId = resolvedParams.id
 
   const supabase = await createClient()
 
-  // 3. Validar sesión del usuario actual
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return notFound()
 
@@ -58,7 +55,6 @@ export default async function TicketDetailPage({ params }: PageProps) {
   let initialComments: StructuredComment[] = []
 
   try {
-    // 4. Traer la información del ticket usando maybeSingle()
     const { data: ticketData, error: ticketError } = await supabase
       .from('tickets')
       .select(`
@@ -76,7 +72,6 @@ export default async function TicketDetailPage({ params }: PageProps) {
 
     ticket = ticketData as unknown as StructuredTicket
 
-    // 5. Obtener el historial de comentarios vinculados a este ticket
     const { data: commentsData, error: commentsError } = await supabase
       .from('comments')
       .select(`
@@ -100,7 +95,6 @@ export default async function TicketDetailPage({ params }: PageProps) {
       <Sidebar />
 
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Barra Superior */}
         <header className="bg-white border-b border-gray-200 h-16 px-4 lg:px-8 flex items-center gap-3 sticky top-0 z-30">
           <Link href="/dashboard" className="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors flex items-center justify-center">
             <ArrowLeft size={18} />
@@ -108,7 +102,6 @@ export default async function TicketDetailPage({ params }: PageProps) {
           <h1 className="text-xl font-bold text-gray-900">Detalles de la Incidencia</h1>
         </header>
 
-        {/* Contenedor principal de la vista */}
         <main className="p-4 lg:p-6 flex-1 overflow-y-auto w-full mx-auto max-w-[1600px]">
           <TicketDetailClient 
             initialTicket={ticket}
@@ -118,5 +111,5 @@ export default async function TicketDetailPage({ params }: PageProps) {
         </main>
       </div>
     </div>
-  )
+  ) 
 }
