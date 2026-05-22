@@ -8,6 +8,15 @@ interface RouteParams {
   }>
 }
 
+// Definimos una interfaz estricta para evitar el uso de 'any'
+interface TicketUpdatePayload {
+  updated_at: string
+  status?: 'Abierto' | 'En proceso' | 'Resuelto' | 'Cerrado'
+  rating?: number | null
+  feedback_comment?: string | null
+  technician_id?: string | null
+}
+
 // 1. GET: Obtener un solo ticket detallado por su UUID
 export async function GET(request: Request, { params }: RouteParams) {
   try {
@@ -44,8 +53,8 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     // Mapeamos los campos exactos que maneja tu BD en el esquema SQL enviado
     const { status, rating, feedback_comment, technician_id } = body
 
-    // Construimos un objeto de actualización dinámico para no sobreescribir con valores nulos
-    const updateData: Record<string, any> = {
+    // Construimos el objeto con el tipo estricto que definimos arriba
+    const updateData: TicketUpdatePayload = {
       updated_at: new Date().toISOString()
     }
 
