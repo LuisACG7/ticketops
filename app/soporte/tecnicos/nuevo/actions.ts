@@ -56,5 +56,5 @@ export async function promoverUsuarioATecnico(formData: {
   }
 
   // Limpiar caché de la lista de técnicos para que aparezca de inmediato el nuevo miembro
-  revalidatePath('/dashboard/soporte/tecnicos')
+  revalidatePath('/soporte/tecnicos')
 }
