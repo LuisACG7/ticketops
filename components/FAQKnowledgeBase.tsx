@@ -180,16 +180,10 @@ export default function FAQKnowledgeBase({ categories, faqs }: FAQKnowledgeBaseP
           </div>
           <div className="flex flex-wrap items-center justify-center gap-3 shrink-0">
             <Link 
-              href="/tickets/nuevo" 
+              href="/dashboard/tickets/nuevo" 
               className="flex items-center gap-1.5 bg-[#0b3b60] hover:bg-opacity-90 text-white text-xs font-bold py-2.5 px-4 rounded-xl transition-all shadow-sm"
             >
               <PlusCircle size={14} /> Crear Nuevo Ticket
-            </Link>
-            <Link 
-              href="/chat-vivo" 
-              className="flex items-center gap-1.5 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 text-xs font-bold py-2.5 px-4 rounded-xl transition-all shadow-sm"
-            >
-              <MessageSquare size={14} className="text-gray-400" /> Chat en vivo
             </Link>
           </div>
         </div>
