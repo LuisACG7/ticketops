@@ -83,7 +83,7 @@ export default function FAQKnowledgeBase({ categories, faqs }: FAQKnowledgeBaseP
           {/* Búsquedas Populares */}
           <div className="flex items-center justify-center gap-2 pt-2 text-xs">
             <span className="text-blue-200 font-semibold">Búsquedas populares:</span>
-            {['Eduroam', 'Cambio NIP', 'VPN'].map((tag) => (
+            {['Eduroam', 'Software', 'VPN'].map((tag) => (
               <button
                 key={tag}
                 type="button"
