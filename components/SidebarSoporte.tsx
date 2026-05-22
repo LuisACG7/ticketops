@@ -1,21 +1,66 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useParams } from 'next/navigation'
 import { LayoutDashboard, Ticket, MessageSquare, User, LogOut, ShieldCheck } from 'lucide-react'
 import { logout } from '@/app/login/actions'
+import { createClient } from '@/utils/supabase/client'
 
 export default function SidebarSoporte() {
+  const [lastTicketId, setLastTicketId] = useState<string | null>(null)
   const pathname = usePathname()
   const params = useParams()
-  
-  // Extraemos el id del ticket si el usuario se encuentra actualmente dentro de la ruta [id]
+  const supabase = createClient()
+
+  // Extraemos el id del ticket si ya nos encontramos dentro de una ruta de detalle
   const currentTicketId = params?.id as string | undefined
 
-  // Determinamos la ruta del chat: si está dentro de un ticket, se queda ahí; si no, va a la lista a elegir uno
-  const chatHref = currentTicketId 
-    ? `/soporte/tickets/${currentTicketId}` 
-    : '/soporte/tickets?select_ticket_to_chat=true'
+  // Efecto para buscar de forma asíncrona el último ticket asignado al técnico
+  useEffect(() => {
+    async function fetchLastTechnicianTicket() {
+      // 1. Si ya estás dentro del detalle de un ticket, memorizamos ese ID para mantener el flujo del chat
+      if (currentTicketId) {
+        setLastTicketId(currentTicketId)
+        return
+      }
+
+      // 2. Si estás fuera, consultamos a Supabase el último ticket modificado asignado a este técnico
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { data: ticket } = await supabase
+        .from('tickets')
+        .select('id')
+        .eq('technician_id', user.id) // Filtra por los asignados al técnico actual
+        .in('status', ['En proceso', 'Abierto']) // Prioriza los chats activos
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .single()
+
+      if (ticket) {
+        setLastTicketId(ticket.id)
+      } else {
+        // Si no hay ninguno "En proceso", busca el último resuelto o general de su historial
+        const { data: anyTicket } = await supabase
+          .from('tickets')
+          .select('id')
+          .eq('technician_id', user.id)
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .single()
+
+        if (anyTicket) setLastTicketId(anyTicket.id)
+      }
+    }
+
+    fetchLastTechnicianTicket()
+  }, [pathname, currentTicketId, supabase])
+
+  // Determinar a dónde mandará el botón de Mensajes / Chats de forma dinámica
+  const chatHref = lastTicketId 
+    ? `/soporte/tickets/${lastTicketId}` 
+    : '/soporte/tickets' // Si no tiene ningún ticket asignado aún, va a la lista general
 
   const menuItems = [
     { name: 'Dashboard', href: '/soporte', icon: LayoutDashboard },
@@ -45,19 +90,18 @@ export default function SidebarSoporte() {
             
             let isActive = false
 
-            // Lógica avanzada de iluminación basada en la estructura real de tus carpetas
+            // Control exacto de iluminación de rutas dinámicas
             if (item.name === 'Mensajes / Chats') {
-              // Se ilumina "Mensajes / Chats" únicamente si el técnico está viendo un ticket en específico
+              // Se ilumina solo si estás dentro del detalle de un ticket Y coincide con la URL del chat activo
               isActive = !!currentTicketId && pathname === item.href
             } else if (item.href === '/soporte') {
-              // Dashboard: Coincidencia exacta
+              // Dashboard principal
               isActive = pathname === '/soporte'
             } else if (item.href === '/soporte/tickets') {
-              // Tickets Asignados: Se ilumina si está en la lista de tickets 
-              // O si está en un ticket individual pero "Mensajes / Chats" NO está activo
+              // Se ilumina si estás en la lista de tickets o viendo un ticket que no es el link asignado al botón de chat
               isActive = pathname.startsWith('/soporte/tickets') && !currentTicketId
             } else {
-              // Técnicos y demás rutas estándar
+              // Otras rutas estáticas como Técnicos
               isActive = pathname.startsWith(item.href)
             }
 
