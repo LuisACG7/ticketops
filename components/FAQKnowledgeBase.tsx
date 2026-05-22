@@ -1,37 +1,37 @@
 'use client'
 
 import { useState } from 'react'
-import { Search, ShieldAlert, Wifi, Laptop, HardDrive, ArrowRight, FileText, PlusCircle } from 'lucide-react'
+import { Search, ShieldAlert, Wifi, Laptop, HardDrive, ArrowRight, FileText, PlusCircle, HelpCircle } from 'lucide-react'
 import Link from 'next/link'
 import { FAQItem, FAQCategory } from '@/types/faq'
 
-// Mapeo corregido usando los IDs reales de tus INSERTS de la base de datos
-const getCategoryDetails = (categoryId: number) => {
-  switch (categoryId) {
+// Mapeo visual dinámico basado en el category_id de cada FAQ
+const getCategoryBadgeDetails = (categoryId: number) => {
+  switch (Number(categoryId)) {
     case 4:
       return {
-        icon: <ShieldAlert className="w-5 h-5 text-blue-600" />,
-        description: 'Gestión de credenciales institucionales, correos y accesos a portales.'
+        label: 'Cuentas e Identidad',
+        styles: 'bg-blue-50 text-blue-700 border-blue-100'
       }
     case 3:
       return {
-        icon: <Wifi className="w-5 h-5 text-blue-600" />,
-        description: 'Guías para conectarse a las redes inalámbricas del campus.'
+        label: 'Conectividad Wi-Fi',
+        styles: 'bg-indigo-50 text-indigo-700 border-indigo-100'
       }
     case 1:
       return {
-        icon: <Laptop className="w-5 h-5 text-blue-600" />,
-        description: 'Licencias institucionales y descargas de paquetería académica.'
+        label: 'Instalación de Software',
+        styles: 'bg-purple-50 text-purple-700 border-purple-100'
       }
     case 2:
       return {
-        icon: <HardDrive className="w-5 h-5 text-blue-600" />,
-        description: 'Reglas de uso, horarios y reportes de fallas en equipos de cómputo.'
+        label: 'Equipos de Cómputo',
+        styles: 'bg-amber-50 text-amber-700 border-amber-100'
       }
     default:
       return {
-        icon: <FileText className="w-5 h-5 text-blue-600" />,
-        description: 'Gestión, guías de acceso y reportes específicos de la sección.'
+        label: 'Soporte General',
+        styles: 'bg-slate-50 text-slate-700 border-slate-100'
       }
   }
 }
@@ -99,102 +99,71 @@ export default function FAQKnowledgeBase({ categories, faqs }: FAQKnowledgeBaseP
         <div className="absolute -right-16 -bottom-16 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
       </div>
 
-      {/* CUERPO PRINCIPAL: EXPLORAR POR CATEGORÍAS */}
-      <div className="max-w-6xl mx-auto px-4 mt-12 space-y-12">
+      {/* CUERPO PRINCIPAL: TODOS LOS ARTÍCULOS DE LA BASE DE CONOCIMIENTO */}
+      <div className="max-w-6xl mx-auto px-4 mt-12 space-y-8">
         <div className="flex items-center justify-between border-b border-gray-200/60 pb-3">
-          <h2 className="text-lg font-bold text-gray-800 tracking-tight">Explorar por Categorías</h2>
-          <Link href="/faq/all" className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1 transition-all">
-            Ver todas <ArrowRight className="w-3 h-3" />
-          </Link>
+          <h2 className="text-lg font-bold text-gray-800 tracking-tight">
+            {searchQuery ? 'Resultados de la búsqueda' : 'Todos los Artículos de Soporte'}
+          </h2>
+          {!searchQuery && (
+            <span className="text-xs bg-slate-200/70 text-slate-700 px-2.5 py-1 rounded-md font-bold">
+              {faqs.length} disponibles
+            </span>
+          )}
         </div>
 
-        {searchQuery ? (
-          /* VISTA CUANDO EL USUARIO BUSCA ALGO */
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
-            <h3 className="text-sm font-bold text-gray-500">Resultados de la búsqueda ({filteredFaqs.length})</h3>
-            {filteredFaqs.length === 0 ? (
-              <p className="text-xs text-gray-400 italic py-4">No se encontraron artículos que coincidan con tu búsqueda.</p>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {filteredFaqs.map((faq) => (
-                  <Link 
-                    key={faq.id} 
-                    href={`/faq/articulo/${faq.id}`}
-                    className="flex items-start gap-2.5 p-3 rounded-xl border border-gray-100 hover:bg-slate-50 transition-all font-medium text-xs text-gray-700"
-                  >
-                    <FileText className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" />
-                    <span className="hover:text-blue-600 transition-colors line-clamp-2">{faq.title}</span>
-                  </Link>
-                ))}
-              </div>
-            )}
+        {/* CONTENEDOR UNIFICADO DE FAQS */}
+        {filteredFaqs.length === 0 ? (
+          <div className="col-span-2 text-center py-12 text-gray-400 text-xs bg-white rounded-2xl border border-gray-200 shadow-sm">
+            No se encontraron artículos disponibles que coincidan con los criterios.
           </div>
         ) : (
-          /* DISEÑO EN CUADRÍCULA - RENDERIZADO SEGURO */
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {categories.length === 0 ? (
-              <div className="col-span-2 text-center py-12 text-gray-400 text-xs bg-white rounded-2xl border border-gray-200">
-                No se encontraron categorías en la base de datos. Asegúrate de tener datos en la tabla categories.
-              </div>
-            ) : (
-              categories.map((cat) => {
-                // Relacionar los artículos correspondientes usando el ID numérico de la categoría
-                const categoryFaqs = faqs.filter(faq => Number(faq.category_id) === Number(cat.id)).slice(0, 3)
-                const details = getCategoryDetails(Number(cat.id))
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {filteredFaqs.map((faq) => {
+              const badge = getCategoryBadgeDetails(faq.category_id)
 
-                return (
-                  <div key={cat.id} className="bg-white rounded-2xl border border-gray-200/90 shadow-sm p-5 space-y-4 flex flex-col justify-between hover:shadow-md transition-shadow">
-                    <div className="space-y-3">
-                      {/* Encabezado de Categoría */}
-                      <div className="flex items-start gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center shrink-0 shadow-sm border border-blue-100/50">
-                          {details.icon}
-                        </div>
-                        <div>
-                          <h3 className="text-sm font-bold text-gray-800">{cat.name}</h3>
-                          <p className="text-[11px] text-gray-400 font-medium leading-tight mt-0.5">
-                            {details.description}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Lista de Artículos */}
-                      <div className="space-y-2 pt-2">
-                        {categoryFaqs.length === 0 ? (
-                          <p className="text-[11px] text-gray-400 italic px-1 py-1">No hay artículos disponibles todavía.</p>
-                        ) : (
-                          categoryFaqs.map((faq) => (
-                            <Link 
-                              key={faq.id} 
-                              href={`/faq/articulo/${faq.id}`}
-                              className="flex items-start gap-2 p-1.5 rounded-lg hover:bg-slate-50 text-[11px] text-gray-600 font-medium transition-all group"
-                            >
-                              <FileText className="w-3.5 h-3.5 text-gray-400 shrink-0 mt-0.5 group-hover:text-blue-500 transition-colors" />
-                              <span className="group-hover:text-blue-600 transition-colors line-clamp-1">{faq.title}</span>
-                            </Link>
-                          ))
-                        )}
-                      </div>
+              return (
+                <div 
+                  key={faq.id} 
+                  className="bg-white rounded-2xl border border-gray-200/80 shadow-sm p-5 hover:shadow-md transition-all flex flex-col justify-between group"
+                >
+                  <div className="space-y-3">
+                    {/* Fila superior: Tag de Categoría */}
+                    <div className="flex items-center justify-between">
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${badge.styles}`}>
+                        {badge.label}
+                      </span>
+                      <FileText className="w-4 h-4 text-gray-300 group-hover:text-blue-500 transition-colors" />
                     </div>
 
-                    {/* Footer de la tarjeta de Categoría */}
-                    <div className="pt-3 border-t border-gray-100 mt-2">
-                      <Link 
-                        href={`/faq/categoria/${cat.id}`} 
-                        className="text-[11px] font-bold text-blue-600 hover:text-blue-700 transition-colors flex items-center gap-1"
-                      >
-                        Ver todos los artículos...
-                      </Link>
-                    </div>
+                    {/* Título de la FAQ */}
+                    <h3 className="text-sm font-bold text-gray-800 group-hover:text-blue-600 transition-colors line-clamp-2">
+                      {faq.title}
+                    </h3>
+
+                    {/* Breve fragmento del contenido */}
+                    <p className="text-xs text-gray-500 font-medium line-clamp-2 leading-relaxed">
+                      {faq.content}
+                    </p>
                   </div>
-                )
-              })
-            )}
+
+                  {/* Enlace de Acción */}
+                  <div className="pt-4 mt-4 border-t border-gray-100/80 flex justify-end">
+                    <Link 
+                      href={`/faq/articulo/${faq.id}`}
+                      className="text-[11px] font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 transition-colors"
+                    >
+                      Leer artículo completo <ArrowRight className="w-3 h-3" />
+                    </Link>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         )}
 
         {/* SECCIÓN INFERIOR: "¿NO ENCONTRASTE LO QUE BUSCABAS?" */}
-        <div className="bg-gray-100/70 rounded-2xl border border-gray-200/60 p-6 flex flex-col md:flex-row items-center justify-between gap-6 max-w-4xl mx-auto shadow-inner">
+        <div className="bg-gray-100/70 rounded-2xl border border-gray-200/60 p-6 flex flex-col md:flex-row items-center justify-between gap-6 max-w-4xl mx-auto shadow-inner pt-6 mt-12">
           <div className="space-y-1 text-center md:text-left">
             <h3 className="text-sm font-extrabold text-gray-900">¿No encontraste lo que buscabas?</h3>
             <p className="text-xs text-gray-500 font-medium max-w-md">
