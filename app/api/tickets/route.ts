@@ -1,12 +1,15 @@
 // app/api/tickets/route.ts
 import { NextResponse } from 'next/server'
-import { createClient } from '@/utils/supabase/server'
+import { createClient } from '@supabase/supabase-js'
 
-// 1. GET: Listar todos los tickets (útil para ver respuestas en Insomnia)
+// Inicializamos el cliente directamente con las variables de entorno del servidor
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+const supabase = createClient(supabaseUrl, supabaseAnonKey)
+
+// 1. GET: Listar todos los tickets (Ideal para ver todo en Insomnia)
 export async function GET() {
   try {
-    const supabase = await createClient()
-    
     const { data: tickets, error } = await supabase
       .from('tickets')
       .select(`
@@ -27,13 +30,12 @@ export async function GET() {
   }
 }
 
-// 2. POST: Crear un nuevo ticket desde un cliente externo o formulario
+// 2. POST: Crear un nuevo ticket desde Insomnia o desde tu formulario
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient()
     const body = await request.json()
 
-    // Extraemos los campos requeridos basados en tu esquema SQL
+    // Extraemos los campos requeridos mapeados de tu interfaz de "Crear Nuevo Ticket"
     const { title, description, priority, category_id, location, user_id } = body
 
     if (!title || !description || !category_id || !user_id) {
@@ -52,8 +54,8 @@ export async function POST(request: Request) {
           priority: priority || 'Media',
           category_id,
           location,
-          user_id, // Forzamos el ID del creador
-          status: 'Abierto' // Estado inicial nativo
+          user_id,
+          status: 'Abierto'
         }
       ])
       .select()
