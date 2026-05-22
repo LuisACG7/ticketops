@@ -2,16 +2,16 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/utils/supabase/client'
-import { Send, Paperclip, CheckCircle2, RefreshCw } from 'lucide-react'
+import { Send, Paperclip, CheckCircle2, RefreshCw, FileText, X, Image as ImageIcon } from 'lucide-react'
 import { RealtimePostgresInsertPayload } from '@supabase/supabase-js'
 
-interface ProfilerInfo {
+export interface ProfilerInfo {
   name: string
   avatar_url: string | null
   role: string
 }
 
-interface Comment {
+export interface Comment {
   id: string
   ticket_id: string
   user_id: string
@@ -21,7 +21,7 @@ interface Comment {
   emisor?: ProfilerInfo
 }
 
-interface TicketStructure {
+export interface TicketStructure {
   id: string
   serial_number: number
   title: string
@@ -43,23 +43,22 @@ interface TicketDetailClientProps {
 export default function TicketDetailClient({ initialTicket, initialComments, currentUserId }: TicketDetailClientProps) {
   const supabase = createClient()
   const chatEndRef = useRef<HTMLDivElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [ticket, setTicket] = useState<TicketStructure>(initialTicket)
   const [comments, setComments] = useState<Comment[]>(initialComments)
   const [newMessage, setNewMessage] = useState<string>('')
   const [sending, setSending] = useState<boolean>(false)
 
+  // Estados para el manejo de archivos adjuntos
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [uploadingFile, setUploadingFile] = useState<boolean>(false)
+
   // Sincronizar el estado local cuando cambien las props del Servidor
   useEffect(() => {
     setTicket(initialTicket)
     setComments(initialComments)
   }, [initialTicket, initialComments])
-
-  useEffect(() => {
-    console.log("=== DEPURACIÓN DE DATOS EN EL CLIENTE ===")
-    console.log("Ticket ID:", ticket.id)
-    console.log("Comentarios en pantalla (state):", comments)
-  }, [ticket.id, comments])
 
   const scrollToBottom = () => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -81,7 +80,7 @@ export default function TicketDetailClient({ initialTicket, initialComments, cur
           table: 'comments', 
           filter: `ticket_id=eq.${ticket.id}` 
         },
-        async (payload: RealtimePostgresInsertPayload<Comment>) => {
+        async (payload: RealtimePostgresInsertPayload<{ id: string; ticket_id: string; user_id: string; message: string; attachments: string[] | null; created_at: string }>) => {
           const newComment = payload.new
 
           try {
@@ -125,30 +124,77 @@ export default function TicketDetailClient({ initialTicket, initialComments, cur
     }
   }, [ticket.id, supabase])
 
+  // Manejar la selección del archivo en el input oculto
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setSelectedFile(e.target.files[0])
+    }
+  }
+
+  // Quitar el archivo seleccionado antes de enviarlo
+  const handleRemoveFile = () => {
+    setSelectedFile(null)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
   const handleSendMessage = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (!newMessage.trim() || sending) return
+    if ((!newMessage.trim() && !selectedFile) || sending) return
 
     setSending(true)
     const textToSend = newMessage.trim()
     setNewMessage('')
 
+    // CORREGIDO: Se usa const para evitar la advertencia de ESLint prefer-const
+    const uploadedUrls: string[] = []
+
     try {
+      // 1. Si hay un archivo seleccionado, subirlo primero a Supabase Storage
+      if (selectedFile) {
+        setUploadingFile(true)
+        const fileExt = selectedFile.name.split('.').pop()
+        const fileName = `${ticket.id}/${Date.now()}.${fileExt}`
+
+        const { error: uploadError } = await supabase.storage
+          .from('ticket-attachments')
+          .upload(fileName, selectedFile, {
+            cacheControl: '3600',
+            upsert: false
+          })
+
+        if (uploadError) throw uploadError
+
+        const { data } = supabase.storage
+          .from('ticket-attachments')
+          .getPublicUrl(fileName)
+
+        if (data?.publicUrl) {
+          uploadedUrls.push(data.publicUrl)
+        }
+        
+        setSelectedFile(null)
+        setUploadingFile(false)
+      }
+
+      // 2. Insertar el comentario en la tabla con las URLs de los adjuntos si existen
       const { error } = await supabase
         .from('comments')
         .insert([
           {
             ticket_id: ticket.id,
             user_id: currentUserId,
-            message: textToSend
+            message: textToSend || (uploadedUrls.length > 0 ? "Archivo adjunto" : ""),
+            attachments: uploadedUrls.length > 0 ? uploadedUrls : null
           }
         ])
 
       if (error) throw error
     } catch (err) {
-      console.error('Error al enviar el mensaje:', err)
+      console.error('Error al enviar el mensaje o adjunto:', err)
+      alert('Ocurrió un error al subir tu archivo o enviar el mensaje.')
     } finally {
       setSending(false)
+      setUploadingFile(false)
     }
   }
 
@@ -175,6 +221,12 @@ export default function TicketDetailClient({ initialTicket, initialComments, cur
       'Cerrado': 'bg-gray-100 text-gray-500 border-gray-200',
     }
     return styles[status] || styles['Abierto']
+  }
+
+  // Helper para saber si la URL apunta a una imagen
+  const isImageFile = (url: string) => {
+    const cleanUrl = url.split('?')[0].toLowerCase()
+    return cleanUrl.endsWith('.png') || cleanUrl.endsWith('.jpg') || cleanUrl.endsWith('.jpeg') || cleanUrl.endsWith('.gif') || cleanUrl.endsWith('.webp')
   }
 
   return (
@@ -302,6 +354,40 @@ export default function TicketDetailClient({ initialTicket, initialComments, cur
                       : 'bg-white text-gray-800 border border-gray-100 rounded-tl-none'
                   }`}>
                     <p className="break-words whitespace-pre-wrap">{msg.message}</p>
+                    
+                    {/* Renderizar los archivos adjuntos de este comentario */}
+                    {msg.attachments && msg.attachments.length > 0 && (
+                      <div className="mt-2.5 pt-2 border-t border-white/20 space-y-1.5">
+                        {msg.attachments.map((url, index) => (
+                          <div key={index} className="rounded-lg overflow-hidden">
+                            {isImageFile(url) ? (
+                              <a href={url} target="_blank" rel="noreferrer" className="block group relative">
+                                <img 
+                                  src={url} 
+                                  alt="Adjunto" 
+                                  className="max-h-48 rounded-lg object-cover border border-black/10 hover:opacity-95 transition-all"
+                                />
+                              </a>
+                            ) : (
+                              <a 
+                                href={url} 
+                                target="_blank" 
+                                rel="noreferrer" 
+                                className={`flex items-center gap-2 p-2 rounded-xl text-[11px] border transition-all ${
+                                  isMe 
+                                    ? 'bg-black/10 border-white/10 text-white hover:bg-black/20' 
+                                    : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
+                                }`}
+                              >
+                                <FileText size={14} className={isMe ? 'text-blue-200' : 'text-gray-500'} />
+                                <span className="underline truncate max-w-[180px]">Ver archivo adjunto (PDF)</span>
+                              </a>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
                     <span className={`block text-[9px] mt-1 text-right ${isMe ? 'text-blue-200' : 'text-gray-400'}`}>
                       {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </span>
@@ -313,24 +399,57 @@ export default function TicketDetailClient({ initialTicket, initialComments, cur
           <div ref={chatEndRef} />
         </div>
 
+        {/* Mini barra de previsualización del archivo seleccionado antes de enviarse */}
+        {selectedFile && (
+          <div className="px-4 py-2 bg-blue-50/80 border-t border-blue-100 flex items-center justify-between text-xs font-semibold text-blue-700 animate-fadeIn">
+            <div className="flex items-center gap-2 truncate">
+              {selectedFile.type.startsWith('image/') ? <ImageIcon size={14} /> : <FileText size={14} />}
+              <span className="truncate max-w-[250px]">{selectedFile.name}</span>
+              <span className="text-[10px] text-blue-400 font-normal">({(selectedFile.size / 1024).toFixed(1)} KB)</span>
+            </div>
+            <button 
+              type="button" 
+              onClick={handleRemoveFile}
+              className="p-1 text-blue-400 hover:text-blue-600 rounded-full hover:bg-blue-100/50 transition-all"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        )}
+
         {/* Input Form */}
         <form onSubmit={handleSendMessage} className="p-3 border-t border-gray-100 bg-white flex items-center gap-2 mt-auto">
-          <button type="button" className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-xl transition-colors">
-            <Paperclip size={16} />
+          {/* Input HTML oculto controlado por referencia */}
+          <input 
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            accept="image/*,application/pdf"
+            className="hidden"
+            disabled={ticket.status === 'Cerrado' || uploadingFile}
+          />
+
+          <button 
+            type="button" 
+            onClick={() => fileInputRef.current?.click()}
+            disabled={ticket.status === 'Cerrado' || uploadingFile}
+            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-xl transition-colors disabled:opacity-50"
+          >
+            <Paperclip size={16} className={selectedFile ? 'text-blue-600' : ''} />
           </button>
           
           <input 
             type="text"
-            placeholder="Escribe tu respuesta aquí..."
+            placeholder={uploadingFile ? "Subiendo archivo..." : "Escribe tu respuesta aquí..."}
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
-            disabled={ticket.status === 'Cerrado'}
-            className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all text-gray-800 placeholder-gray-400"
+            disabled={ticket.status === 'Cerrado' || uploadingFile}
+            className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all text-gray-800 placeholder-gray-400 disabled:opacity-60"
           />
 
           <button 
             type="submit"
-            disabled={!newMessage.trim() || sending || ticket.status === 'Cerrado'}
+            disabled={(!newMessage.trim() && !selectedFile) || sending || ticket.status === 'Cerrado' || uploadingFile}
             className="p-2 bg-[#0b3b60] text-white rounded-xl hover:bg-opacity-90 disabled:bg-gray-100 disabled:text-gray-400 transition-all shadow-sm flex items-center justify-center"
           >
             <Send size={14} />
