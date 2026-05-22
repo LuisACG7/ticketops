@@ -113,7 +113,7 @@ export default async function TecnicosDashboard({ searchParams }: PageProps) {
         <div className="flex items-center gap-3">
           {/* Botón estructural para promover/añadir técnicos */}
           <Link 
-            href="/dashboard/soporte/tecnicos/nuevo"
+            href="soporte/tecnicos/nuevo"
             className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-2.5 px-4 rounded-xl transition-all shadow-sm shadow-blue-100"
           >
             <Plus size={14} />
