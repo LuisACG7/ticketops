@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/utils/supabase/client'
-import { Send, Paperclip, CheckCircle2, RefreshCw, FileText, X, Image as ImageIcon } from 'lucide-react'
-import { RealtimePostgresInsertPayload } from '@supabase/supabase-js'
+import { Send, Paperclip, CheckCircle2, RefreshCw, FileText, X, Image as ImageIcon, Star } from 'lucide-react'
+import { RealtimePostgresInsertPayload, RealtimePostgresUpdatePayload } from '@supabase/supabase-js'
+import { rateAndCloseTicket } from '@/app/dashboard/tickets/actions'
 
 export interface ProfilerInfo {
   name: string
@@ -30,6 +31,7 @@ export interface TicketStructure {
   priority: string
   category_id: number
   location: string | null
+  rating?: number | null
   usuario?: ProfilerInfo
   tecnico?: ProfilerInfo
 }
@@ -54,6 +56,11 @@ export default function TicketDetailClient({ initialTicket, initialComments, cur
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [uploadingFile, setUploadingFile] = useState<boolean>(false)
 
+  // Estados para el sistema de calificación por estrellas
+  const [rating, setRating] = useState<number>(0)
+  const [hoverRating, setHoverRating] = useState<number>(0)
+  const [isSubmittingRating, setIsSubmittingRating] = useState<boolean>(false)
+
   // Sincronizar el estado local cuando cambien las props del Servidor
   useEffect(() => {
     setTicket(initialTicket)
@@ -68,9 +75,10 @@ export default function TicketDetailClient({ initialTicket, initialComments, cur
     scrollToBottom()
   }, [comments])
 
-  // Suscripción de Realtime corregida y segura
+  // Suscripción Realtime Unificada para comentarios y estado del ticket
   useEffect(() => {
-    const channel = supabase
+    // 1. Canal para nuevos comentarios
+    const commentsChannel = supabase
       .channel(`chat_room_${ticket.id}`)
       .on(
         'postgres_changes',
@@ -119,19 +127,40 @@ export default function TicketDetailClient({ initialTicket, initialComments, cur
       )
       .subscribe()
 
+    // 2. Canal para escuchar actualizaciones de este ticket específico (Cambios de Estado o Rating)
+    const ticketChannel = supabase
+      .channel(`ticket_state_${ticket.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'tickets',
+          filter: `id=eq.${ticket.id}`
+        },
+        (payload: RealtimePostgresUpdatePayload<TicketStructure>) => {
+          const updatedTicket = payload.new
+          setTicket((prev) => ({
+            ...prev,
+            status: updatedTicket.status,
+            rating: updatedTicket.rating
+          }))
+        }
+      )
+      .subscribe()
+
     return () => {
-      supabase.removeChannel(channel)
+      supabase.removeChannel(commentsChannel)
+      supabase.removeChannel(ticketChannel)
     }
   }, [ticket.id, supabase])
 
-  // Manejar la selección del archivo en el input oculto
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setSelectedFile(e.target.files[0])
     }
   }
 
-  // Quitar el archivo seleccionado antes de enviarlo
   const handleRemoveFile = () => {
     setSelectedFile(null)
     if (fileInputRef.current) fileInputRef.current.value = ''
@@ -145,11 +174,9 @@ export default function TicketDetailClient({ initialTicket, initialComments, cur
     const textToSend = newMessage.trim()
     setNewMessage('')
 
-    // CORREGIDO: Se usa const para evitar la advertencia de ESLint prefer-const
     const uploadedUrls: string[] = []
 
     try {
-      // 1. Si hay un archivo seleccionado, subirlo primero a Supabase Storage
       if (selectedFile) {
         setUploadingFile(true)
         const fileExt = selectedFile.name.split('.').pop()
@@ -176,7 +203,6 @@ export default function TicketDetailClient({ initialTicket, initialComments, cur
         setUploadingFile(false)
       }
 
-      // 2. Insertar el comentario en la tabla con las URLs de los adjuntos si existen
       const { error } = await supabase
         .from('comments')
         .insert([
@@ -198,18 +224,35 @@ export default function TicketDetailClient({ initialTicket, initialComments, cur
     }
   }
 
-  const handleUpdateStatus = async (newStatus: 'Abierto' | 'En proceso' | 'Resuelto' | 'Cerrado') => {
+  // Cambiar estado a "En proceso" si el alumno reabre la incidencia
+  const handleReopenStatus = async () => {
     try {
       const { error } = await supabase
         .from('tickets')
-        .update({ status: newStatus, updated_at: new Date().toISOString() })
+        .update({ status: 'En proceso', rating: null, updated_at: new Date().toISOString() })
         .eq('id', ticket.id)
 
       if (!error) {
-        setTicket((prev) => ({ ...prev, status: newStatus }))
+        setTicket((prev) => ({ ...prev, status: 'En proceso', rating: null }))
+        setRating(0)
       }
     } catch (err) {
-      console.error('Error al actualizar estado:', err)
+      console.error('Error al reabrir ticket:', err)
+    }
+  }
+
+  // Manejar el envío de la evaluación de estrellas
+  const handleSubmitRating = async () => {
+    if (rating === 0) {
+      alert("Por favor selecciona una estrella antes de enviar.");
+      return;
+    }
+    setIsSubmittingRating(true)
+    const res = await rateAndCloseTicket(ticket.id, rating)
+    setIsSubmittingRating(false)
+    
+    if (res.error) {
+      alert(res.error)
     }
   }
 
@@ -223,7 +266,6 @@ export default function TicketDetailClient({ initialTicket, initialComments, cur
     return styles[status] || styles['Abierto']
   }
 
-  // Helper para saber si la URL apunta a una imagen
   const isImageFile = (url: string) => {
     const cleanUrl = url.split('?')[0].toLowerCase()
     return cleanUrl.endsWith('.png') || cleanUrl.endsWith('.jpg') || cleanUrl.endsWith('.jpeg') || cleanUrl.endsWith('.gif') || cleanUrl.endsWith('.webp')
@@ -281,6 +323,7 @@ export default function TicketDetailClient({ initialTicket, initialComments, cur
           </div>
         </div>
 
+        {/* STATUS HISTORY CON INTERFAZ DE EVALUACIÓN */}
         <div className="bg-white rounded-2xl border border-gray-200/90 shadow-sm p-5 space-y-4">
           <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400">Status History</h3>
           <div className="space-y-4 relative before:absolute before:left-3.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-gray-100">
@@ -290,27 +333,77 @@ export default function TicketDetailClient({ initialTicket, initialComments, cur
               </div>
               <div>
                 <p className="text-xs font-bold text-gray-800 font-sans">Resolución del Caso</p>
-                <p className="text-[10px] text-gray-400">Estado actual de la incidencia: {ticket.status}</p>
+                <p className="text-[10px] text-gray-400">Estado actual de la incidencia: <span className="font-bold">{ticket.status}</span></p>
               </div>
             </div>
           </div>
 
+          {/* VISTA 1: El técnico resolvió, el alumno procede a calificar para cerrar */}
           {ticket.status === 'Resuelto' && (
-            <div className="pt-2 space-y-2">
+            <div className="pt-3 border-t border-gray-100 space-y-3 animate-fadeIn">
+              <div className="bg-emerald-50/50 border border-emerald-100 rounded-xl p-3 text-center">
+                <p className="text-xs font-bold text-emerald-800">¿Se solucionó tu problema?</p>
+                <p className="text-[11px] text-emerald-600/90 mt-0.5">Evalúa el servicio recibido para cerrar el caso.</p>
+                
+                {/* Estrellas Interactivas */}
+                <div className="flex justify-center items-center gap-1.5 my-3">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setRating(star)}
+                      onMouseEnter={() => setHoverRating(star)}
+                      onMouseLeave={() => setHoverRating(0)}
+                      className="transition-transform hover:scale-110 focus:outline-none"
+                    >
+                      <Star
+                        size={22}
+                        className={`${
+                          star <= (hoverRating || rating)
+                            ? 'fill-amber-400 text-amber-400'
+                            : 'text-gray-300'
+                        }`}
+                      />
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <button
                 type="button"
-                onClick={() => handleUpdateStatus('Cerrado')}
-                className="w-full flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2 px-4 rounded-xl transition-all shadow-sm"
+                onClick={handleSubmitRating}
+                disabled={rating === 0 || isSubmittingRating}
+                className="w-full flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2.5 px-4 rounded-xl transition-all shadow-sm disabled:opacity-50"
               >
-                Marcar como Satisfecho
+                {isSubmittingRating ? 'Guardando...' : 'Marcar como Satisfecho y Cerrar'}
               </button>
+              
               <button
                 type="button"
-                onClick={() => handleUpdateStatus('En proceso')}
+                onClick={handleReopenStatus}
                 className="w-full flex items-center justify-center gap-1.5 bg-red-50 text-red-600 hover:bg-red-100 text-xs font-bold py-2 px-4 rounded-xl transition-all"
               >
                 <RefreshCw size={12} /> Reabrir Ticket (Persiste error)
               </button>
+            </div>
+          )}
+
+          {/* VISTA 2: El ticket ya se encuentra Cerrado y calificado */}
+          {ticket.status === 'Cerrado' && (
+            <div className="pt-2 border-t border-gray-100 text-center space-y-2 animate-fadeIn">
+              <p className="text-xs font-bold text-gray-500">Incidencia Finalizada</p>
+              {ticket.rating && (
+                <div className="flex justify-center items-center gap-1 bg-gray-50 py-1.5 px-3 rounded-lg w-max mx-auto border border-gray-100">
+                  <span className="text-[11px] font-bold text-gray-600 mr-1">Tu evaluación:</span>
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <Star
+                      key={star}
+                      size={14}
+                      className={`${star <= (ticket.rating ?? 0) ? 'fill-amber-400 text-amber-400' : 'text-gray-200'}`}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -355,7 +448,6 @@ export default function TicketDetailClient({ initialTicket, initialComments, cur
                   }`}>
                     <p className="break-words whitespace-pre-wrap">{msg.message}</p>
                     
-                    {/* Renderizar los archivos adjuntos de este comentario */}
                     {msg.attachments && msg.attachments.length > 0 && (
                       <div className="mt-2.5 pt-2 border-t border-white/20 space-y-1.5">
                         {msg.attachments.map((url, index) => (
@@ -399,7 +491,7 @@ export default function TicketDetailClient({ initialTicket, initialComments, cur
           <div ref={chatEndRef} />
         </div>
 
-        {/* Mini barra de previsualización del archivo seleccionado antes de enviarse */}
+        {/* Barra de previsualización de archivos */}
         {selectedFile && (
           <div className="px-4 py-2 bg-blue-50/80 border-t border-blue-100 flex items-center justify-between text-xs font-semibold text-blue-700 animate-fadeIn">
             <div className="flex items-center gap-2 truncate">
@@ -419,7 +511,6 @@ export default function TicketDetailClient({ initialTicket, initialComments, cur
 
         {/* Input Form */}
         <form onSubmit={handleSendMessage} className="p-3 border-t border-gray-100 bg-white flex items-center gap-2 mt-auto">
-          {/* Input HTML oculto controlado por referencia */}
           <input 
             type="file"
             ref={fileInputRef}
@@ -440,7 +531,7 @@ export default function TicketDetailClient({ initialTicket, initialComments, cur
           
           <input 
             type="text"
-            placeholder={uploadingFile ? "Subiendo archivo..." : "Escribe tu respuesta aquí..."}
+            placeholder={uploadingFile ? "Subiendo archivo..." : ticket.status === 'Cerrado' ? "Esta incidencia se encuentra cerrada" : "Escribe tu respuesta aquí..."}
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             disabled={ticket.status === 'Cerrado' || uploadingFile}

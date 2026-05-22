@@ -20,6 +20,7 @@ type StructuredTicket = {
   priority: string
   category_id: number
   location: string | null
+  rating?: number | null
   usuario?: BaseUserProfile
   tecnico?: BaseUserProfile
   [key: string]: unknown 
@@ -59,6 +60,7 @@ export default async function TicketDetailPage({ params }: PageProps) {
       .from('tickets')
       .select(`
         *,
+        rating,
         usuario:user_id(name, avatar_url, role),
         tecnico:technician_id(name, avatar_url, role)
       `)
