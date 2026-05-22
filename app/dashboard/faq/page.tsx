@@ -1,5 +1,6 @@
 import { createClient } from '@/utils/supabase/server'
 import FAQKnowledgeBase from '@/components/FAQKnowledgeBase'
+import Sidebar from '@/components/Sidebar' // 
 import { FAQCategory, FAQItem } from '@/types/faq'
 
 // Forzar renderizado dinámico para traer cambios inmediatos de la BD
@@ -29,8 +30,14 @@ export default async function FAQPage() {
   const faqs: FAQItem[] = faqsData || []
 
   return (
-    <div className="w-full">
-      <FAQKnowledgeBase categories={categories} faqs={faqs} />
+    <div className="flex min-h-screen bg-slate-50/50 w-full">
+      {/* SIDEBAR FIJO A LA IZQUIERDA */}
+      <Sidebar />
+
+      {/* CONTENEDOR FLEXIBLE PARA LA INTERFAZ DE FAQ */}
+      <main className="flex-1 overflow-y-auto">
+        <FAQKnowledgeBase categories={categories} faqs={faqs} />
+      </main>
     </div>
   )
 }
