@@ -70,7 +70,7 @@ export default function AgregarTecnicoPage() {
         is_active: isActive
       })
       
-      router.push('/dashboard/soporte/tecnicos')
+      router.push('/soporte/tecnicos')
       router.refresh()
     } catch (err) {
       if (err instanceof Error) {
@@ -89,7 +89,7 @@ export default function AgregarTecnicoPage() {
         {/* BOTÓN REGRESAR Y ENCABEZADO */}
         <div className="space-y-3">
           <Link 
-            href="/dashboard/soporte/tecnicos"
+            href="/soporte/tecnicos"
             className="inline-flex items-center gap-1.5 text-xs font-bold text-gray-500 hover:text-gray-800 transition-colors bg-white border border-gray-200 px-3 py-1.5 rounded-xl shadow-sm"
           >
             <ArrowLeft size={12} /> Regresar al listado
@@ -270,7 +270,7 @@ export default function AgregarTecnicoPage() {
               {/* BOTONES DE ACCIÓN */}
               <div className="flex items-center justify-end gap-3">
                 <Link
-                  href="/dashboard/soporte/tecnicos"
+                  href="/soporte/tecnicos"
                   className="text-xs font-bold text-gray-500 bg-white border border-gray-200 px-4 py-2.5 rounded-xl hover:bg-slate-50 transition-all"
                 >
                   Cancelar
