@@ -5,13 +5,13 @@ import { createClient } from '@/utils/supabase/client'
 import { Send, Paperclip, CheckCircle2, RefreshCw, FileText, X, Image as ImageIcon } from 'lucide-react'
 import { RealtimePostgresInsertPayload } from '@supabase/supabase-js'
 
-interface ProfilerInfo {
+export interface ProfilerInfo {
   name: string
   avatar_url: string | null
   role: string
 }
 
-interface Comment {
+export interface Comment {
   id: string
   ticket_id: string
   user_id: string
@@ -21,7 +21,7 @@ interface Comment {
   emisor?: ProfilerInfo
 }
 
-interface TicketStructure {
+export interface TicketStructure {
   id: string
   serial_number: number
   title: string
@@ -145,7 +145,8 @@ export default function TicketDetailClient({ initialTicket, initialComments, cur
     const textToSend = newMessage.trim()
     setNewMessage('')
 
-    let uploadedUrls: string[] = []
+    // CORREGIDO: Se usa const para evitar la advertencia de ESLint prefer-const
+    const uploadedUrls: string[] = []
 
     try {
       // 1. Si hay un archivo seleccionado, subirlo primero a Supabase Storage
@@ -163,7 +164,6 @@ export default function TicketDetailClient({ initialTicket, initialComments, cur
 
         if (uploadError) throw uploadError
 
-        // Solución definitiva y limpia para extraer la URL pública según tipos oficiales
         const { data } = supabase.storage
           .from('ticket-attachments')
           .getPublicUrl(fileName)
