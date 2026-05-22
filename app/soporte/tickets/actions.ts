@@ -10,7 +10,7 @@ interface Tecnico {
   role: 'Soporte' | 'Admin' | 'Usuario'
 }
 
-// 1. Obtener lista de personal calificado para resolver incidencias
+// 1. Obtener lista de personal técnico activo
 export async function obtenerTecnicosDisponibles(): Promise<Tecnico[]> {
   const supabase = await createClient()
 
@@ -28,7 +28,33 @@ export async function obtenerTecnicosDisponibles(): Promise<Tecnico[]> {
   return data as Tecnico[]
 }
 
-// 2. Asignar el técnico seleccionado al ticket correspondiente
+// 2. Obtener todos los tickets vinculando el usuario que reportó y su técnico asignado
+export async function obtenerTicketsConDetalles() {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase
+    .from('tickets')
+    .select(`
+      id,
+      serial_number,
+      title,
+      status,
+      priority,
+      updated_at,
+      user:profiles!tickets_user_id_fkey(id, name, email),
+      technician:profiles!tickets_technician_id_fkey(id, name, email)
+    `)
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    console.error('Error al mapear tickets de la BD:', error.message)
+    return []
+  }
+
+  return data || []
+}
+
+// 3. Asignar el técnico seleccionado y forzar el cambio en caliente
 export async function asignarTecnicoATicket(ticketId: string, technicianId: string) {
   const supabase = await createClient()
 
@@ -36,22 +62,27 @@ export async function asignarTecnicoATicket(ticketId: string, technicianId: stri
     .from('tickets')
     .update({
       technician_id: technicianId,
-      status: 'En proceso', // Cambia de estado automáticamente al asignar
+      status: 'En proceso',
       updated_at: new Date().toISOString()
     })
     .eq('id', ticketId)
-    .select()
+    .select(`
+      id,
+      serial_number,
+      title,
+      status,
+      priority,
+      updated_at,
+      user:profiles!tickets_user_id_fkey(id, name, email),
+      technician:profiles!tickets_technician_id_fkey(id, name, email)
+    `)
 
   if (error) {
-    console.error('Error de Supabase al actualizar ticket:', error.message)
+    console.error('Error de Supabase al guardar técnico:', error.message)
     throw new Error(error.message)
   }
 
-  if (!data || data.length === 0) {
-    throw new Error('No se modificó el ticket. Verifica los permisos RLS de la tabla tickets.')
-  }
-
-  // Revalidar las rutas para romper el caché de Next.js
-  revalidatePath('/', 'layout')
+  // Rompemos la caché de Next.js para renderizar los nuevos datos en el servidor
+  revalidatePath('/soporte/tickets')
   return data[0]
 }
