@@ -12,7 +12,7 @@ export default function SidebarSoporte() {
     { name: 'Dashboard', href: '/soporte', icon: LayoutDashboard },
     { name: 'Tickets Asignados', href: '/soporte/tickets', icon: Ticket },
     { name: 'Mensajes / Chats', href: '/soporte/chats', icon: MessageSquare },
-    { name: 'Mi Perfil', href: '/soporte/perfil', icon: User },
+    { name: 'Tecnicos', href: '/soporte/tecnicos', icon: User },
   ]
 
   return (
