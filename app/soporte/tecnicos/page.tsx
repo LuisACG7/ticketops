@@ -113,7 +113,7 @@ export default async function TecnicosDashboard({ searchParams }: PageProps) {
         <div className="flex items-center gap-3">
           {/* Botón estructural para promover/añadir técnicos */}
           <Link 
-            href="soporte/tecnicos/nuevo"
+            href="/soporte/tecnicos/nuevo"
             className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-2.5 px-4 rounded-xl transition-all shadow-sm shadow-blue-100"
           >
             <Plus size={14} />
@@ -301,7 +301,7 @@ export default async function TecnicosDashboard({ searchParams }: PageProps) {
             </span>
             <div className="flex items-center gap-2">
               <Link
-                href={`/dashboard/soporte/tecnicos?page=${currentPage - 1}${querySearch ? `&search=${querySearch}` : ''}`}
+                href={`/soporte/tecnicos?page=${currentPage - 1}${querySearch ? `&search=${querySearch}` : ''}`}
                 className={`p-1.5 rounded-lg border border-gray-200 bg-white text-gray-600 transition-all ${
                   currentPage <= 1 ? 'pointer-events-none opacity-40' : 'hover:bg-gray-50'
                 }`}
@@ -309,7 +309,7 @@ export default async function TecnicosDashboard({ searchParams }: PageProps) {
                 <ChevronLeft size={14} />
               </Link>
               <Link
-                href={`/dashboard/soporte/tecnicos?page=${currentPage + 1}${querySearch ? `&search=${querySearch}` : ''}`}
+                href={`/soporte/tecnicos?page=${currentPage + 1}${querySearch ? `&search=${querySearch}` : ''}`}
                 className={`p-1.5 rounded-lg border border-gray-200 bg-white text-gray-600 transition-all ${
                   currentPage >= totalPages ? 'pointer-events-none opacity-40' : 'hover:bg-gray-50'
                 }`}
