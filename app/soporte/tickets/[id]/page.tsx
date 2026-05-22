@@ -1,116 +1,120 @@
-import Sidebar from '@/components/Sidebar'
-import { createClient } from '@/utils/supabase/server'
-import { notFound } from 'next/navigation'
+'use client'
+
 import Link from 'next/link'
-import { ArrowLeft } from 'lucide-react'
-import TicketDetailSupportClient from '@/components/TicketDetailSupportClient'
+import { usePathname } from 'next/navigation'
+import { LayoutDashboard, Ticket, MessageSquare, User, LogOut, ShieldCheck } from 'lucide-react'
+import { logout } from '@/app/login/actions'
 
-type BaseUserProfile = {
+// Definimos la estructura de un Ticket para evitar errores de TypeScript de tipo 'any'
+interface PerfilBasico {
+  id: string
   name: string
-  avatar_url: string | null
-  role: string
+  email: string
 }
 
-type StructuredTicket = {
+interface TicketData {
   id: string
-  serial_number: number
+  serial_number: string
   title: string
-  description: string
-  status: 'Abierto' | 'En proceso' | 'Resuelto' | 'Cerrado'
+  status: string
   priority: string
-  category_id: number
-  location: string | null
-  usuario?: BaseUserProfile
-  tecnico?: BaseUserProfile
-  [key: string]: unknown 
+  updated_at: string
+  user: PerfilBasico
+  technician: PerfilBasico | null
 }
 
-type StructuredComment = {
-  id: string
-  ticket_id: string
-  user_id: string
-  message: string
-  attachments: string[] | null
-  created_at: string
-  emisor?: BaseUserProfile
-  [key: string]: unknown 
+interface SidebarSoporteProps {
+  tickets?: TicketData[] // Recibe la lista de tickets actuales opcionalmente para buscar el chat activo
 }
 
-interface PageProps {
-  params: Promise<{
-    id: string
-  }>
-}
+export default function SidebarSoporte({ tickets = [] }: SidebarSoporteProps) {
+  const pathname = usePathname()
 
-export default async function TicketDetailSupportPage({ params }: PageProps) {
-  const resolvedParams = await params
-  const ticketId = resolvedParams.id
+  // 1. Buscamos si hay algún ticket activo ("En proceso" o "Abierto") para obtener su ID de chat dinámico
+  const ticketConChatActivo = tickets.find(
+    (t) => t.status === 'En proceso' || t.status === 'Abierto'
+  )
 
-  const supabase = await createClient()
+  // Si encuentra un ticket del técnico, lo manda al chat interno de ese ticket. Si no, a la lista.
+  const rutaChatDinamico = ticketConChatActivo 
+    ? `/soporte/tickets/${ticketConChatActivo.id}`
+    : '/soporte/tickets'
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return notFound()
-
-  let ticket: StructuredTicket | null = null
-  let initialComments: StructuredComment[] = []
-
-  try {
-    const { data: ticketData, error: ticketError } = await supabase
-      .from('tickets')
-      .select(`
-        *,
-        usuario:user_id(name, avatar_url, role),
-        tecnico:technician_id(name, avatar_url, role)
-      `)
-      .eq('id', ticketId)
-      .maybeSingle()
-
-    if (ticketError || !ticketData) {
-      console.error("Error o Ticket no encontrado en Base de Datos:", ticketError)
-      return notFound()
-    }
-
-    ticket = ticketData as unknown as StructuredTicket
-
-    const { data: commentsData, error: commentsError } = await supabase
-      .from('comments')
-      .select(`
-        *,
-        emisor:user_id(name, avatar_url, role)
-      `)
-      .eq('ticket_id', ticketId)
-      .order('created_at', { ascending: true })
-
-    if (!commentsError && commentsData) {
-      initialComments = commentsData as unknown as StructuredComment[]
-    }
-
-  } catch (error) {
-    console.error("Error crítico en el servidor al recuperar datos:", error)
-    return notFound()
-  }
+  const menuItems = [
+    { name: 'Dashboard', href: '/soporte', icon: LayoutDashboard },
+    { name: 'Tickets Asignados', href: '/soporte/tickets', icon: Ticket },
+    { name: 'Mensajes / Chats', href: rutaChatDinamico, icon: MessageSquare },
+    { name: 'Tecnicos', href: '/soporte/tecnicos', icon: User },
+  ]
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] flex text-gray-900 font-sans">
-      {/* Tu Sidebar institucional */}
-      <Sidebar />
+    <aside className="w-64 bg-[#0b3b60] text-white flex flex-col justify-between min-h-screen shadow-xl shrink-0">
+      <div className="p-5 space-y-6">
+        {/* Identificador Institucional */}
+        <div className="flex items-center gap-3 border-b border-white/10 pb-4">
+          <div className="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center shadow-md">
+            <ShieldCheck size={18} className="text-white" />
+          </div>
+          <div>
+            <h2 className="text-sm font-black tracking-wider">IT CELAYA</h2>
+            <p className="text-[10px] text-blue-200 font-bold tracking-tight">SOPORTE TÉCNICO</p>
+          </div>
+        </div>
 
-      <div className="flex-1 flex flex-col min-w-0">
-        <header className="bg-white border-b border-gray-200 h-16 px-4 lg:px-8 flex items-center gap-3 sticky top-0 z-30">
-          <Link href="/soporte/dashboard" className="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors flex items-center justify-center">
-            <ArrowLeft size={18} />
-          </Link>
-          <h1 className="text-xl font-bold text-gray-900">Consola de Soporte - Control de Incidencia</h1>
-        </header>
+        {/* Menú de Navegación */}
+        <nav className="space-y-1">
+          {menuItems.map((item) => {
+            const Icon = item.icon
+            
+            // Lógica de iluminación de rutas
+            let isActive = false
+            if (item.name === 'Mensajes / Chats') {
+              // Si estás dentro de un detalle de ticket específico, iluminamos "Mensajes / Chats" o "Tickets Asignados"
+              // Aquí decidimos que si estás viendo el chat de un ticket, se quede prendido Mensajes/Chats
+              isActive = pathname.startsWith('/soporte/tickets/') && pathname === item.href
+            } else if (item.href === '/soporte') {
+              isActive = pathname === item.href
+            } else {
+              isActive = pathname.startsWith(item.href) && !pathname.startsWith('/soporte/tickets/')
+            }
 
-        <main className="p-4 lg:p-6 flex-1 overflow-y-auto w-full mx-auto max-w-[1600px]">
-          <TicketDetailSupportClient 
-            initialTicket={ticket}
-            initialComments={initialComments}
-            currentUserId={user.id}
-          />
-        </main>
+            // Forzar que 'Tickets Asignados' se ilumine si estás en un sub-ticket y el chat no capturó la ruta
+            if (item.href === '/soporte/tickets' && pathname.startsWith('/soporte/tickets') && !isActive) {
+              // Si no está activo el chat pero estamos en un ticket, activamos el menú de Tickets
+              const esChatActivo = menuItems.find(i => i.name === 'Mensajes / Chats')?.href === pathname
+              if (!esChatActivo) isActive = true
+            }
+
+            return (
+              <Link
+                key={item.name + item.href}
+                href={item.href}
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition-all ${
+                  isActive
+                    ? 'bg-white text-[#0b3b60] shadow-md scale-[1.02]'
+                    : 'text-blue-100 hover:bg-white/10'
+                }`}
+              >
+                <Icon size={16} className={isActive ? 'text-[#0b3b60]' : 'text-blue-200'} />
+                {item.name}
+              </Link>
+            )
+          })}
+        </nav>
       </div>
-    </div>
-  ) 
+
+      {/* Botón de Cerrar Sesión en el Footer */}
+      <div className="p-4 border-t border-white/10">
+        <form action={logout}>
+          <button
+            type="submit"
+            className="w-full flex items-center justify-center gap-2 bg-red-500/10 hover:bg-red-500 text-red-200 hover:text-white text-xs font-bold py-3 px-4 rounded-xl transition-all border border-red-500/20"
+          >
+            <LogOut size={14} />
+            Cerrar Sesión
+          </button>
+        </form>
+      </div>
+    </aside>
+  )
 }
