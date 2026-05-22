@@ -9,20 +9,17 @@ import { revalidatePath } from 'next/cache'
 export async function createTicket(formData: FormData) {
   const supabase = await createClient()
 
-  // 1. Obtener los datos del usuario logueado
   const { data: { user }, error: userError } = await supabase.auth.getUser()
   if (userError || !user) {
     return { error: 'Sesión expirada o inválida. Por favor, inicia sesión de nuevo.' }
   }
 
-  // 2. Extraer los campos del FormData nativo
   const title = formData.get('title') as string
   const description = formData.get('description') as string
   const categoryId = formData.get('categoryId') as string
-  const priority = formData.get('priority') as string // 'Baja', 'Media', 'Alta'
-  const file = formData.get('evidence') as File // Archivo adjunto
+  const priority = formData.get('priority') as string 
+  const file = formData.get('evidence') as File 
 
-  // Validaciones básicas de backend
   if (!title || !description || !categoryId) {
     return { error: 'Por favor, rellena todos los campos obligatorios.' }
   }
@@ -33,7 +30,6 @@ export async function createTicket(formData: FormData) {
 
   let finalEvidenceUrl: string | null = null
 
-  // 3. Flujo de subida de archivos al Bucket de Supabase
   if (file && file.size > 0) {
     if (file.size > 10 * 1024 * 1024) {
       return { error: 'El archivo excede el límite permitido de 10MB.' }
@@ -61,7 +57,6 @@ export async function createTicket(formData: FormData) {
     finalEvidenceUrl = publicUrl
   }
 
-  // 4. Inserción en la tabla public.tickets
   const { error: insertError } = await supabase
     .from('tickets')
     .insert([
@@ -81,10 +76,7 @@ export async function createTicket(formData: FormData) {
     return { error: 'Hubo un error en el servidor al guardar el ticket.' }
   }
 
-  // 5. Revalidamos la ruta del dashboard para que pinte el nuevo ticket al volver
   revalidatePath('/dashboard')
-  
-  // Retornamos éxito en lugar de forzar un redirect síncrono roto
   return { success: true }
 }
 
@@ -109,5 +101,31 @@ export async function getCategories() {
   } catch (err) {
     console.error("Error crítico en Server Action:", err);
     return [];
+  }
+}
+
+// ==========================================
+// NUEVA ACCIÓN 3: Calificar y Cerrar Ticket
+// ==========================================
+export async function rateAndCloseTicket(ticketId: string, rating: number) {
+  try {
+    const supabase = await createClient()
+
+    const { error } = await supabase
+      .from('tickets')
+      .update({ 
+        status: 'Cerrado', 
+        rating: rating, // Asegúrate de tener la columna 'rating' de tipo int2/int4 en tu tabla 'tickets'
+        updated_at: new Date().toISOString() 
+      })
+      .eq('id', ticketId)
+
+    if (error) throw error
+
+    revalidatePath(`/dashboard/tickets/${ticketId}`)
+    return { success: true }
+  } catch (err) {
+    console.error("Error al calificar el ticket:", err)
+    return { error: "No se pudo procesar la calificación." }
   }
 }
