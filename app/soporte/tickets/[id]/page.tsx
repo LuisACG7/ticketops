@@ -1,4 +1,3 @@
-import Sidebar from '@/components/Sidebar'
 import { createClient } from '@/utils/supabase/server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
@@ -91,26 +90,26 @@ export default async function TicketDetailSupportPage({ params }: PageProps) {
   }
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] flex text-gray-900 font-sans">
-      {/* Tu Sidebar institucional */}
-      <Sidebar />
+    <div className="flex flex-col min-h-screen w-full">
+      {/* Header superior de la consola */}
+      <header className="bg-white border-b border-gray-200 h-16 px-4 lg:px-8 flex items-center gap-3 sticky top-0 z-30 w-full">
+        <Link 
+          href="/soporte/tickets" 
+          className="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors flex items-center justify-center"
+        >
+          <ArrowLeft size={18} />
+        </Link>
+        <h1 className="text-xl font-bold text-gray-900">Consola de Soporte - Control de Incidencia</h1>
+      </header>
 
-      <div className="flex-1 flex flex-col min-w-0">
-        <header className="bg-white border-b border-gray-200 h-16 px-4 lg:px-8 flex items-center gap-3 sticky top-0 z-30">
-          <Link href="/soporte/dashboard" className="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors flex items-center justify-center">
-            <ArrowLeft size={18} />
-          </Link>
-          <h1 className="text-xl font-bold text-gray-900">Consola de Soporte - Control de Incidencia</h1>
-        </header>
-
-        <main className="p-4 lg:p-6 flex-1 overflow-y-auto w-full mx-auto max-w-[1600px]">
-          <TicketDetailSupportClient 
-            initialTicket={ticket}
-            initialComments={initialComments}
-            currentUserId={user.id}
-          />
-        </main>
-      </div>
+      {/* Área del contenido del chat */}
+      <main className="p-4 lg:p-6 flex-1 overflow-y-auto w-full mx-auto max-w-[1600px]">
+        <TicketDetailSupportClient 
+          initialTicket={ticket}
+          initialComments={initialComments}
+          currentUserId={user.id}
+        />
+      </main>
     </div>
   ) 
 }
