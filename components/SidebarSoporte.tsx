@@ -33,7 +33,14 @@ export default function SidebarSoporte() {
         <nav className="space-y-1">
           {menuItems.map((item) => {
             const Icon = item.icon
-            const isActive = pathname === item.href
+            
+            {/* CORREGIDO: Si es la raíz de soporte, evaluar coincidencia exacta.
+              Si son subrutas (como /soporte/tickets/[id]), evalúa si el pathname inicia con esa ruta base.
+            */}
+            const isActive = item.href === '/soporte' 
+              ? pathname === item.href 
+              : pathname.startsWith(item.href)
+
             return (
               <Link
                 key={item.href}
