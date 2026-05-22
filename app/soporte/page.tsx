@@ -219,7 +219,7 @@ export default async function SoporteDashboard() {
                       <div className="flex items-center justify-center gap-1.5">
                         {/* Enlace para chatear o resolver */}
                         <Link
-                          href={`/dashboard/tickets/${ticket.id}`}
+                          href={`/soporte/tickets/${ticket.id}`}
                           className="flex items-center gap-1 bg-blue-50 hover:bg-blue-600 text-blue-600 hover:text-white font-bold text-[10px] py-1.5 px-2.5 rounded-lg border border-blue-100 transition-all shadow-sm"
                         >
                           Atender <ArrowRight size={10} />
